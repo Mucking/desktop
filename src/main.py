@@ -1,0 +1,638 @@
+import logging
+import os
+import sqlite3
+import sys
+from datetime import datetime
+from PyQt5 import QtCore, QtWidgets, uic, QtSql
+import dialogs
+import delegates
+import utils
+import pathlib
+
+VERSION = "2019.00.25"
+
+# TODO: BUGS
+#  Delegates size hints for unit display boxes slightly undersized in some cases
+#  Size Hints broken on linux
+
+# TODO: MVP
+#    Rankings display
+#    Tie Breakers
+
+# TODO: View
+#    Tie Breakers
+
+# TODO: Database
+#    Extract Records based on rankings
+
+# TODO: Functionality
+#    Scoring Functionality
+#      Check for ties
+#       Default points for both to lower value or higher value?
+#       Check overall ranking
+#       Request tiebreaker as needed (What defines this?)
+#      Tie Overrides
+#        add a ties won attribute to the table default 0
+#        sort scoring by points then ties won
+#        consider 3+ way ties
+#      Additional table for rankings
+
+# TODO: Documentation
+#    About details (low priority)
+#    General Documentation
+#      Server/Client Setup (Later)
+#    Troubleshooting Help
+
+# TODO: QOL (Later, V2020+)
+#    Server/Client
+#      Enable local/master database sync
+#      Mobile Client for single event score collection
+#    Import basic data (name, school, division) from excel/csv file
+#    Placeholder input text based on pref units
+#    Display as fractional inches
+#    Tooltips for many items
+#    Tiebreaker from selecion
+#    Right Click Column to select display method
+#    Reskin (Design tweak to be visually more interesting?)
+#    Allow Merging Divisions for scoring (later)
+#    VIEWS:
+#       Scoreboard
+#          multichoice field/banquet views
+#          division display all/rotating view by div
+#          for banquet div separation and slideshow?
+#          Award Ceremony Click to reveal?
+#       Records (Highlight New Records?)
+#       Pull All Time Records from mucking.org
+
+
+class GUI(QtWidgets.QMainWindow):
+    # Define Class Signals
+    settings_changed = QtCore.pyqtSignal()
+    db_changed = QtCore.pyqtSignal()
+
+    def setup_custom_logging(self):
+        logging.addLevelName(utils.TXN_LEVEL_NUM, "TXN")
+        logging.Logger.txn = utils.txn
+
+        self.logger = logging.getLogger("Main")
+        self.logger.setLevel(utils.TXN_LEVEL_NUM)
+
+        formatter = logging.Formatter(
+            "[%(asctime)-10s][%(levelname)-8s] %(name)-15s - %(message)s",
+            "%Y-%m-%d %H:%M:%S",
+        )
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.DEBUG)
+        console_handler.setFormatter(formatter)
+        self.logger.addHandler(console_handler)
+
+        # Error Checking for log files
+        logs_dir = pathlib.Path(f'{self.directory}{os.sep}logs')
+        log_file = pathlib.Path(f"{logs_dir}{os.sep}mucking_{datetime.now().date()}.log")
+        if not logs_dir.is_dir():
+            logs_dir.mkdir()
+            if not log_file.exists():
+                log_file.touch()
+
+        file_handler = logging.FileHandler(
+            f"logs{os.sep}mucking_{datetime.now().date()}.log"
+        )
+        file_handler.setLevel(logging.DEBUG)
+        file_handler.setFormatter(formatter)
+        self.logger.addHandler(file_handler)
+        self.logger.info("Logger Initalized")
+
+    def __init__(self):
+        self.directory = QtCore.QDir.currentPath()
+        self.data_dir = self.directory + os.sep + "data"
+        if not self.data_dir.is_dir():
+            self.data_dir.mkdir()
+
+
+        # Logging Setup
+        self.logger = None
+        self.setup_custom_logging()
+        self.logger.info(f"Mucking Score Tracker V{VERSION}")
+
+        # UI Setup
+        super(GUI, self).__init__()
+        uic.loadUi(f"ui{os.sep}Mucking Score Tracker.ui", self)
+        self.logger.info("Setting Up Main UI")
+
+        # Placeholders for active competition variables
+        self.settings = None
+        self.db = None
+        self.data_model = None
+        self.rank_model = None
+        self.display = self.findChild(QtWidgets.QStackedWidget, "screens")
+
+        # Active Comp Screen
+        self.logger.info("Setting Up Comp Screen")
+        self.comp_screen = self.findChild(QtWidgets.QWidget, "s_comp")
+        self.show()
+        self.conn_status = QtWidgets.QLabel()
+        self.statusBar().addPermanentWidget(self.conn_status)
+        self.c_filter = self.findChild(QtWidgets.QComboBox, "v_div_filter")
+        self.c_filter.currentTextChanged.connect(self.model_filter)
+        self.rb_imperial = self.findChild(QtWidgets.QRadioButton, "rb_units_imperial")
+        self.rb_imperial.toggled.connect(self.units_update)
+        self.rb_metric = self.findChild(QtWidgets.QRadioButton, "rb_units_metric")
+        self.rb_metric.toggled.connect(self.units_update)
+        self.rb_rank = self.findChild(QtWidgets.QRadioButton, "rb_units_rank")
+        self.rb_rank.toggled.connect(self.units_update)
+        self.team_table = self.findChild(QtWidgets.QTableView, "teams_table")
+        self.team_table.installEventFilter(self)
+        b_team_add = self.findChild(QtWidgets.QPushButton, "b_team_add")
+        b_team_add.clicked.connect(self.team_create)
+        b_comp_score = self.findChild(QtWidgets.QPushButton, "b_comp_score")
+        b_comp_score.clicked.connect(self.comp_score)
+        self.local_delegates = None
+
+        # Welcome Screen
+        self.logger.info("Setting Up Welcome Screen")
+        self.welcome_screen = self.findChild(QtWidgets.QWidget, "s_welcome")
+        b_load_comp = self.findChild(QtWidgets.QPushButton, "b_load_comp")
+        b_load_comp.clicked.connect(self.comp_load)
+        b_new_comp = self.findChild(QtWidgets.QPushButton, "b_new_comp")
+        b_new_comp.clicked.connect(self.comp_create)
+
+        # Menu Setup
+        self.logger.info("Setting Up Dropdown Menus")
+        action_new = self.findChild(QtWidgets.QAction, "a_comp_new")
+        action_new.triggered.connect(self.comp_create)
+        action_open = self.findChild(QtWidgets.QAction, "a_comp_open")
+        action_open.triggered.connect(self.comp_load)
+        action_close = self.findChild(QtWidgets.QAction, "a_comp_close")
+        action_close.triggered.connect(self.restart_app)
+        action_save = self.findChild(QtWidgets.QAction, "a_comp_save")
+        action_save.triggered.connect(self.comp_save)
+        action_save = self.findChild(QtWidgets.QAction, "a_comp_saveAs")
+        action_save.triggered.connect(self.comp_save_as)
+        action_quit = self.findChild(QtWidgets.QAction, "a_quit")
+        action_quit.triggered.connect(self.close)
+        action_settings = self.findChild(QtWidgets.QAction, "a_edit_preferences")
+        action_settings.triggered.connect(self.settings_modify)
+
+        # Context Menu Setup
+        self.logger.info("Setting Up Context Menu")
+        self.setContextMenuPolicy(QtCore.Qt.ActionsContextMenu)
+
+        context_action_add_team = QtWidgets.QAction("Add Team", self)
+        context_action_add_team.triggered.connect(self.team_create)
+        self.addAction(context_action_add_team)
+
+        context_action_del_team = QtWidgets.QAction("Delete Team", self)
+        context_action_del_team.triggered.connect(self.team_delete)
+        self.addAction(context_action_del_team)
+
+        # Default to welcome screen
+        self.display.setCurrentWidget(self.welcome_screen)
+
+        # Listen for settings changed signal settings update
+        self.db_changed.connect(self.db_update)
+
+    def db_update(self):
+        self.logger.info("Database File Changed")
+        # TODO: Handle closing of DB
+        self.db_setup()
+        self.model_setup()
+        self.view_setup()
+
+    # Competition Management Functions
+    def comp_create(self):
+        self.logger.info("Creating New Competition Config File")
+        diag = dialogs.NewComp()
+        if diag.exec_():
+            self.logger.debug("NewComp Dialog Success")
+            if self.settings:
+                self.settings.sync()
+                self.settings = None
+            path = self.data_dir
+            year = diag.year.value()
+
+            # Default Settings to config file
+            config_file = QtWidgets.QFileDialog.getSaveFileName(
+                self,
+                "Save File",
+                self.data_dir + os.sep + f"mucking_{year}.config",
+                "Config File (*.config)",
+            )[0]
+            self.logger.debug(f"Saving Default settings to {config_file}")
+            self.settings = QtCore.QSettings(config_file, QtCore.QSettings.IniFormat)
+            self.settings.setValue("app/display", "metric")
+            self.settings.setValue("comp/host", diag.host.text())
+            self.settings.setValue("comp/units", diag.units.currentText())
+            self.settings.setValue("comp/year", year)
+            self.settings.setValue("units/time", "hh:mm:ss.ss")
+            self.settings.setValue("iunits/handsteel", "in")
+            self.settings.setValue("iunits/jackleg", "ft")
+            self.settings.setValue("iunits/survey", "dynamic")
+            self.settings.setValue("munits/handsteel", "mm")
+            self.settings.setValue("munits/jackleg", "cm")
+            self.settings.setValue("munits/survey", "dynamic")
+            self.settings.sync()
+
+            # setup database
+            db_filepath = config_file.replace(".config", ".db")
+            self.logger.debug(f"Creating New Database {db_filepath}")
+            db = sqlite3.connect(db_filepath)
+            db.close()
+            self.settings.setValue("db/path", db_filepath)
+
+            self.db_changed.emit()
+
+            # Change to Welcome Screen
+            self.display.setCurrentWidget(self.comp_screen)
+
+    def comp_load(self):
+        # TODO: Detect if comp already loaded and cleanly disconnect (HARD)
+        config_file = QtWidgets.QFileDialog.getOpenFileName(
+            self, "Load File", self.data_dir, "Config File (*.config)"
+        )[0]
+        if not config_file:
+            return
+        self.logger.info(f"Loading Competition {config_file}")
+        self.settings = QtCore.QSettings(config_file, QtCore.QSettings.IniFormat)
+        self.db_changed.emit()
+        self.display.setCurrentWidget(self.comp_screen)
+
+    def comp_save(self):
+        self.logger.info(f"Manual Save Initiated")
+        self.settings.sync()
+        # DB Save scheme means save after every change
+
+    def comp_save_as(self):
+        self.logger.info(f"Save As current competition")
+        # TODO: Update method to better handle database close/reopen
+        #  Ties in with comp_load and comp_close issues
+        prev = self.settings
+        config_file = QtWidgets.QFileDialog.getSaveFileName(
+            self, "Save File", self.settings.fileName(), "Config File (*.config)"
+        )[0]
+
+        self.logger.info(f"Copying settings {prev.fileName()} -> {config_file}")
+        self.settings = QtCore.QSettings(config_file, QtCore.QSettings.IniFormat)
+        for key in prev.allKeys():
+            self.settings.setValue(key, prev.value(key))
+
+        # Update DB path
+        self.settings.setValue("db/path", config_file.replace(".config", ".db"))
+
+        # Copy DB
+        self.logger.info(f"Copying Database to {config_file.replace('.config', '.db')}")
+        utils.db_copy(prev.value("db/path"), self.settings.value("db/path"))
+
+        # Close Existing Database
+        self.logger.info(f"Closing Existing Database connections")
+        self.data_model.clear()
+        self.db.removeDatabase(self.db.connectionName())
+
+        # Reinitialize application
+        self.settings_changed.emit()
+
+    def comp_close(self):
+        self.logger.info(f"Closing Settings and Database Connections")
+        print(self.db.connectionNames())
+        self.settings.sync()
+        self.data_model.close()
+        dbname = self.db.connectionName()
+        self.settings = None
+        self.db = None
+        self.data_model = None
+        QtSql.QSqlDatabase.removeDatabase(dbname)
+        self.team_table.setModel(None)
+        self.display.setCurrentWidget(self.welcome_screen)
+
+    def comp_score(self):
+        # TODO: Verify no nulls
+        # TODO: Improve Scoring Algorithm (Currently does not expect ties)
+        #       Current Scoring Improvements
+        #         Check if values for a given team are the same in an event
+        #         Event Score Check on primary table and then make changes to rank table
+        #         2 teams tied for 2nd place both get 2 points and the next team gets 4
+        #         This propogates scores cascading down rather than up
+        #       Account for ties won in the overall ranking
+        #         Needed since event scores will not change
+
+        event_sorting = {
+            "Mucking": "ASC",
+            "Swede Saw": "ASC",
+            "Track Stand": "ASC",
+            "Gold Pan": "ASC",
+            "Hand Steel": "DESC",
+            "Jackleg": "DESC",
+            "Survey": "ASC",
+        }
+
+        dq_time = {
+            "Mucking": utils.DQ_TIME,
+            "Swede Saw": utils.DQ_TIME,
+            "Track Stand": utils.DQ_TIME,
+            "Gold Pan": utils.DQ_TIME,
+            "Hand Steel": utils.DQ_MIN_LENGTH,
+            "Jackleg": utils.DQ_MIN_LENGTH,
+            "Survey": utils.DQ_MAX_LENGTH,
+        }
+        self.logger.info("Scoring Competition")
+        loop_query = QtSql.QSqlQuery(self.db)
+        inner_query = QtSql.QSqlQuery(self.db)
+
+        self.logger.debug("Computing Initial Ranks")
+        for div in ["A", "C", "M", "W"]:
+            for event in event_sorting:
+                order = event_sorting[event]
+                loop_query.exec(
+                    f'SELECT id, "{event}" from teams WHERE Division = "{div}" ORDER BY "{event}" {order};'
+                )
+                i = 1  # Ranking handled at DB level 'i' for placing
+                while loop_query.next():
+                    t_id = loop_query.value(0)
+                    e_val = loop_query.value(1)
+
+                    # DQ's Default to 0 for further processing
+                    set_val = i if e_val != dq_time[event] else 0
+                    inner_query.exec(f"SELECT id FROM ranks WHERE id = {t_id};")
+
+                    # Insert if no existing record else update
+                    if not inner_query.next():
+                        sql = f'INSERT INTO ranks (id, Division, "{event}") VALUES ({t_id}, "{div}", {set_val});'
+                    else:
+                        sql = (
+                            f'UPDATE ranks SET "{event}" = {set_val} WHERE id = {t_id};'
+                        )
+                    inner_query.exec(sql)
+                    i += 1
+
+        self.logger.debug("Computing DQ Scores and Updating Ranks")
+        for div in ["A", "C", "M", "W"]:
+            for event in event_sorting:
+                total = 0
+                dq = 0
+                # How many teams total in the division
+                loop_query.exec(
+                    f'SELECT COUNT("{event}") FROM ranks where Division="{div}";'
+                )
+                if loop_query.next():
+                    total = loop_query.value(0)
+                # How many teams disqualified in the division
+                loop_query.exec(
+                    f'SELECT COUNT("{event}") FROM ranks WHERE Division="{div}" and "{event}"=0;'
+                )
+                if loop_query.next():
+                    dq = loop_query.value(0)
+
+                # if either of these are empty then there is either no teams or no dq's
+                if total and dq:
+                    dq_score = total - dq + 1
+                    inner_query.exec(
+                        f'UPDATE ranks SET "{event}" = {dq_score} where Division="{div}" and "{event}"=0;'
+                    )
+
+        self.logger.debug("Computing Total Scores")
+        loop_query.exec("SELECT * from ranks;")
+        while loop_query.next():
+            s = 0
+            t_id = loop_query.value(0)
+            for i in range(2, 9):
+                s += loop_query.value(i)
+            inner_query.exec(f"UPDATE ranks SET Sum = {s} WHERE id = {t_id};")
+
+        # Cleanup Query Objects just in case
+        loop_query.clear()
+        inner_query.clear()
+
+    # Model/View Functions
+    def db_setup(self) -> None:
+        self.logger.info("Initializing Database")
+        self.db = QtSql.QSqlDatabase.addDatabase("QSQLITE")
+        db_filepath = self.settings.value("db/path", "")
+
+        db_file = QtCore.QFileInfo(db_filepath)
+        if db_file.exists() and db_file.isFile():
+            self.db.setDatabaseName(db_filepath)
+            self.db.open()
+            # Setup Teams Table
+            if "teams" not in self.db.tables():
+                query = QtSql.QSqlQuery()
+                query.exec_(utils.TEAMS_SQL)
+                query.clear()
+
+            # Setup Ranks table if needed
+            if "ranks" not in self.db.tables():
+                query = QtSql.QSqlQuery()
+                query.exec_(utils.RANKS_SQL)
+                query.clear()
+
+        else:
+            diag = dialogs.RetryDialog(
+                "Select Database",
+                "Unable to open database\nCheck if file is valid or try a different file",
+                "Open",
+            )
+            diag.retry.connect(self.db_setup)
+            diag.accepted.connect(self.db_change)
+            diag.rejected.connect(self.close)
+            diag.exec_()
+            self.conn_status.setText("Connected [local]")
+
+    def db_change(self) -> None:
+        self.logger.warning("Unable to locate database, requesting updated location")
+        db_filename = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            "Select Database File",
+            self.data_dir,
+            "Database File (*.db)",
+        )[0]
+        self.settings.setValue("db/path", db_filename)
+        self.db_setup()
+
+    def model_setup(self) -> None:
+        self.logger.info("Initializing Model")
+        data_model = QtSql.QSqlTableModel(self)
+        data_model.setTable("teams")
+        data_model.setEditStrategy(QtSql.QSqlTableModel.OnFieldChange)
+        data_model.select()
+        self.data_model = data_model
+        rank_model = QtSql.QSqlTableModel(self)
+        rank_model.setTable("ranks")
+        rank_model.setEditStrategy(QtSql.QSqlTableModel.OnManualSubmit)
+        rank_model.select()
+        self.rank_model = rank_model
+
+    def model_filter(self, text):
+        self.logger.debug(f"Model Filter Set to {text}")
+        if text == "All":
+            self.data_model.setFilter("")
+            self.rank_model.setFilter("")
+        else:
+            # Filter based on the first letter of the combobox value, the CHAR in the db
+            self.data_model.setFilter(f"division='{text[0]}'")
+            self.rank_model.setFilter(f"division='{text[0]}'")
+
+    def view_setup(self) -> None:
+        self.logger.info("Initializing Competition View")
+        # Update Title
+        title = self.findChild(QtWidgets.QLabel, "l_teams_header")
+        title.setText(f"{self.settings.value('comp/year')} Team Scores")
+
+        # Table Options
+        # TODO: Setup table based on which model is in use
+        self.team_table.setModel(self.data_model)
+        self.team_table.setColumnHidden(0, True)
+        self.table_min_size()
+        self.team_table.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.Stretch
+        )
+        self.team_table.horizontalHeader().setSectionResizeMode(
+            1, QtWidgets.QHeaderView.ResizeToContents
+        )
+        self.team_table.horizontalHeader().setSectionResizeMode(
+            2, QtWidgets.QHeaderView.ResizeToContents
+        )
+
+        # Column Options
+        # Note diff delegate instance for each column as recommended by docs
+        # Delegate ref must be kept to prevent GC
+        self.logger.info("Initializing Tableview Delegates")
+        self.local_delegates = list()
+
+        # Setup Division Delegate
+        self.local_delegates.append(delegates.DivisionDelegate(self))
+        self.team_table.setItemDelegateForColumn(3, self.local_delegates[-1])
+
+        # Setup Timed Event Delegates
+        for col in range(4, 8):
+            self.local_delegates.append(delegates.TimeEditDelegate(self))
+            self.team_table.setItemDelegateForColumn(col, self.local_delegates[-1])
+
+        # Setup Length Event Delegates
+        self.local_delegates.append(delegates.HandsteelDelegate(self))
+        self.team_table.setItemDelegateForColumn(8, self.local_delegates[-1])
+        self.local_delegates.append(delegates.JacklegDelegate(self))
+        self.team_table.setItemDelegateForColumn(9, self.local_delegates[-1])
+        self.local_delegates.append(delegates.SurveyDelegate(self))
+        self.team_table.setItemDelegateForColumn(10, self.local_delegates[-1])
+
+        self.team_table.resizeColumnsToContents()
+
+        # Needs to be setup here as model is not setup in init
+        # Only need to connect to 1 since there are 2 exclusive buttons
+        self.rb_imperial.toggled.connect(self.data_model.select)
+
+    # Team Management Functions
+    def team_create(self):
+        self.logger.info("Creating New Team")
+        diag = dialogs.NewTeam()
+        if diag.exec_():
+            self.logger.debug("Created New Team, Saving and Refreshing Screen")
+            team = self.data_model.record()
+            team.setValue("Name", diag.name.text())
+            team.setValue("Division", diag.division.currentText()[0])
+
+            # School/Sponsor optional (NULL only in DB not empty strings)
+            if diag.school.text():
+                team.setValue("School", diag.school.text())
+
+            if self.data_model.insertRecord(-1, team):
+                self.logger.debug("Successfully inserted team")
+                self.data_model.select()
+            else:
+                self.logger.debug("Failed to insert team")
+
+    def team_delete(self):
+        index = self.team_table.selectedIndexes()
+
+        # Ensure there is a selection
+        # Maybe disable in context menu if there is no selection?
+        if index:
+            index = index[0]
+        else:
+            utils.alert("No Team Selected", "Please Select a team to delete", "warn")
+            return
+
+        backup = []
+        for i in range(self.data_model.columnCount()):
+            value = self.data_model.data(self.data_model.index(index.row(), i))
+
+            # Replace empty strings with none to better represent the database state
+            if value == "":
+                value = None
+            backup.append(value)
+
+        confirmation = utils.confirm(
+            "Delete Team", f"Do you want to delete the following team?\n{backup[2]}"
+        )
+        if confirmation == QtWidgets.QMessageBox.Yes:
+            self.logger.info("Deleting Team")
+            self.logger.txn(f"[Deleted] Team Data - {backup}")
+            self.data_model.deleteRowFromTable(index.row())
+            self.data_model.select()
+        else:
+            self.logger.debug("Canceled team delete request")
+
+    def settings_modify(self):
+        self.logger.info("Open Setting Dialog")
+        diag = dialogs.SettingsDialog(self)
+        if diag.exec_():
+            self.logger.debug("Saving updated settings")
+            updates = diag.update_settings()
+
+            for key in updates:
+                if key == "units/time":
+                    self.settings.setValue(key, updates[key])
+                else:
+                    self.settings.setValue(key, utils.UNIT_SHORTHAND[updates[key]])
+
+    # Restart program typically to reset DB connections by restarting the application
+    def restart_app(self):
+        self.logger.warning("Why Though?")
+        python = sys.executable
+        os.execl(python, python, *sys.argv)
+
+    # keep the main widget from getting smaller than the tableview
+    def table_min_size(self):
+        self.centralWidget().setMinimumWidth(
+            self.team_table.horizontalHeader().length()
+            + self.team_table.verticalHeader().width()
+            + self.team_table.verticalScrollBar().width()
+        )
+
+    def units_update(self):
+        # TODO: Handle Dual data model
+        caller = self.sender()
+        self.settings.setValue("app/display", caller.text().lower())
+        for col in range(3, 11):
+            self.team_table.horizontalHeader().setSectionResizeMode(
+                col, QtWidgets.QHeaderView.ResizeToContents
+            )
+        self.team_table.resizeColumnsToContents()
+        for col in range(3, 11):
+            self.team_table.horizontalHeader().setSectionResizeMode(
+                col, QtWidgets.QHeaderView.Stretch
+            )
+
+    # Application Wide Event Filter
+    def eventFilter(self, source: QtWidgets.QWidget, event: QtCore.QEvent):
+        if type(source) == QtWidgets.QTableView:
+            self.excel_like_enter_filter(source, event)
+        return super(GUI, self).eventFilter(source, event)
+
+    # TableView Specific event filtering
+    @staticmethod
+    def excel_like_enter_filter(source: QtWidgets.QTableView, event: QtCore.QEvent):
+        if event.type() == event.KeyPress:
+            if event.key() == QtCore.Qt.Key_Return:
+                next_row = source.currentIndex().row() + 1
+                if next_row + 1 > source.model().rowCount():
+                    next_row -= 1
+                if source.state() == source.EditingState:
+                    next_index = source.model().index(next_row, source.currentIndex().column())
+                    source.setCurrentIndex(next_index)
+                else:
+                    source.edit(source.currentIndex())
+
+
+if __name__ == "__main__":
+    app = QtWidgets.QApplication(sys.argv)
+    window = GUI()
+    app.exec_()
