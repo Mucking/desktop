@@ -27,7 +27,9 @@ RANKS_SQL = '''create table ranks (
         primary key constraint 
     ranks_teams_id_fk 
         references teams 
-        on delete cascade, 
+        on delete cascade,
+    School varchar(120), 
+    Name varchar(80) not null,  
     Division varchar(1), 
     Mucking int, 
     "Swede Saw" int, 

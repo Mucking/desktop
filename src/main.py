@@ -9,21 +9,14 @@ import delegates
 import utils
 import pathlib
 
-VERSION = "2019.00.25"
+VERSION = "2019.00.75"
 
 # TODO: BUGS
 #  Delegates size hints for unit display boxes slightly undersized in some cases
 #  Size Hints broken on linux
 
 # TODO: MVP
-#    Rankings display
 #    Tie Breakers
-
-# TODO: View
-#    Tie Breakers
-
-# TODO: Database
-#    Extract Records based on rankings
 
 # TODO: Functionality
 #    Scoring Functionality
@@ -35,7 +28,6 @@ VERSION = "2019.00.25"
 #        add a ties won attribute to the table default 0
 #        sort scoring by points then ties won
 #        consider 3+ way ties
-#      Additional table for rankings
 
 # TODO: Documentation
 #    About details (low priority)
@@ -104,7 +96,7 @@ class GUI(QtWidgets.QMainWindow):
 
     def __init__(self):
         self.directory = QtCore.QDir.currentPath()
-        self.data_dir = self.directory + os.sep + "data"
+        self.data_dir = pathlib.Path(self.directory + os.sep + "data")
         if not self.data_dir.is_dir():
             self.data_dir.mkdir()
 
@@ -214,7 +206,7 @@ class GUI(QtWidgets.QMainWindow):
             config_file = QtWidgets.QFileDialog.getSaveFileName(
                 self,
                 "Save File",
-                self.data_dir + os.sep + f"mucking_{year}.config",
+                str(self.data_dir) + os.sep + f"mucking_{year}.config",
                 "Config File (*.config)",
             )[0]
             self.logger.debug(f"Saving Default settings to {config_file}")
@@ -247,7 +239,7 @@ class GUI(QtWidgets.QMainWindow):
     def comp_load(self):
         # TODO: Detect if comp already loaded and cleanly disconnect (HARD)
         config_file = QtWidgets.QFileDialog.getOpenFileName(
-            self, "Load File", self.data_dir, "Config File (*.config)"
+            self, "Load File", str(self.data_dir), "Config File (*.config)"
         )[0]
         if not config_file:
             return
@@ -342,12 +334,14 @@ class GUI(QtWidgets.QMainWindow):
             for event in event_sorting:
                 order = event_sorting[event]
                 loop_query.exec(
-                    f'SELECT id, "{event}" from teams WHERE Division = "{div}" ORDER BY "{event}" {order};'
+                    f'SELECT id, School, Name, "{event}" from teams WHERE Division = "{div}" ORDER BY "{event}" {order};'
                 )
                 i = 1  # Ranking handled at DB level 'i' for placing
                 while loop_query.next():
                     t_id = loop_query.value(0)
-                    e_val = loop_query.value(1)
+                    s_name = loop_query.value(1)
+                    t_name = loop_query.value(2)
+                    e_val = loop_query.value(3)
 
                     # DQ's Default to 0 for further processing
                     set_val = i if e_val != dq_time[event] else 0
@@ -355,12 +349,12 @@ class GUI(QtWidgets.QMainWindow):
 
                     # Insert if no existing record else update
                     if not inner_query.next():
-                        sql = f'INSERT INTO ranks (id, Division, "{event}") VALUES ({t_id}, "{div}", {set_val});'
+                        sql = f'INSERT INTO ranks (id, School, Name, Division, "{event}") VALUES ({t_id}, "{s_name}", "{t_name}", "{div}", {set_val});'
                     else:
                         sql = (
                             f'UPDATE ranks SET "{event}" = {set_val} WHERE id = {t_id};'
                         )
-                    inner_query.exec(sql)
+                    temp = inner_query.exec(sql)
                     i += 1
 
         self.logger.debug("Computing DQ Scores and Updating Ranks")
@@ -393,13 +387,16 @@ class GUI(QtWidgets.QMainWindow):
         while loop_query.next():
             s = 0
             t_id = loop_query.value(0)
-            for i in range(2, 9):
+            for i in range(4, 12):
                 s += loop_query.value(i)
             inner_query.exec(f"UPDATE ranks SET Sum = {s} WHERE id = {t_id};")
 
         # Cleanup Query Objects just in case
         loop_query.clear()
         inner_query.clear()
+
+        # Change Radio Button to Rank view
+        self.rb_rank.setChecked(True)
 
     # Model/View Functions
     def db_setup(self) -> None:
@@ -447,7 +444,7 @@ class GUI(QtWidgets.QMainWindow):
         self.db_setup()
 
     def model_setup(self) -> None:
-        self.logger.info("Initializing Model")
+        self.logger.info("Initializing Models")
         data_model = QtSql.QSqlTableModel(self)
         data_model.setTable("teams")
         data_model.setEditStrategy(QtSql.QSqlTableModel.OnFieldChange)
@@ -468,6 +465,18 @@ class GUI(QtWidgets.QMainWindow):
             # Filter based on the first letter of the combobox value, the CHAR in the db
             self.data_model.setFilter(f"division='{text[0]}'")
             self.rank_model.setFilter(f"division='{text[0]}'")
+
+    def model_change(self):
+        display_mode = self.settings.value("app/display")
+        if display_mode == "rank":
+            self.team_table.setModel(self.rank_model)
+            self.team_table.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+            self.rank_model.select()
+            self.team_table.resizeColumnsToContents()
+        else:
+            self.team_table.setModel(self.data_model)
+            self.team_table.setEditTriggers(QtWidgets.QAbstractItemView.AllEditTriggers)
+            self.team_table.resizeColumnsToContents()
 
     def view_setup(self) -> None:
         self.logger.info("Initializing Competition View")
@@ -622,14 +631,15 @@ class GUI(QtWidgets.QMainWindow):
     def excel_like_enter_filter(source: QtWidgets.QTableView, event: QtCore.QEvent):
         if event.type() == event.KeyPress:
             if event.key() == QtCore.Qt.Key_Return:
-                next_row = source.currentIndex().row() + 1
-                if next_row + 1 > source.model().rowCount():
-                    next_row -= 1
-                if source.state() == source.EditingState:
-                    next_index = source.model().index(next_row, source.currentIndex().column())
-                    source.setCurrentIndex(next_index)
-                else:
-                    source.edit(source.currentIndex())
+                if int(source.editTriggers()) > int(QtWidgets.QAbstractItemView.NoEditTriggers):
+                    next_row = source.currentIndex().row() + 1
+                    if next_row + 1 > source.model().rowCount():
+                        next_row -= 1
+                    if source.state() == source.EditingState:
+                        next_index = source.model().index(next_row, source.currentIndex().column())
+                        source.setCurrentIndex(next_index)
+                    else:
+                        source.edit(source.currentIndex())
 
 
 if __name__ == "__main__":
