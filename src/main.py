@@ -11,51 +11,6 @@ import pathlib
 
 VERSION = "2019.00.75"
 
-# TODO: BUGS
-#  Delegates size hints for unit display boxes slightly undersized in some cases
-#  Size Hints broken on linux
-
-# TODO: MVP
-#    Tie Breakers
-
-# TODO: Functionality
-#    Scoring Functionality
-#      Check for ties
-#       Default points for both to lower value or higher value?
-#       Check overall ranking
-#       Request tiebreaker as needed (What defines this?)
-#      Tie Overrides
-#        add a ties won attribute to the table default 0
-#        sort scoring by points then ties won
-#        consider 3+ way ties
-
-# TODO: Documentation
-#    About details (low priority)
-#    General Documentation
-#      Server/Client Setup (Later)
-#    Troubleshooting Help
-
-# TODO: QOL (Later, V2020+)
-#    Server/Client
-#      Enable local/master database sync
-#      Mobile Client for single event score collection
-#    Import basic data (name, school, division) from excel/csv file
-#    Placeholder input text based on pref units
-#    Display as fractional inches
-#    Tooltips for many items
-#    Tiebreaker from selecion
-#    Right Click Column to select display method
-#    Reskin (Design tweak to be visually more interesting?)
-#    Allow Merging Divisions for scoring (later)
-#    VIEWS:
-#       Scoreboard
-#          multichoice field/banquet views
-#          division display all/rotating view by div
-#          for banquet div separation and slideshow?
-#          Award Ceremony Click to reveal?
-#       Records (Highlight New Records?)
-#       Pull All Time Records from mucking.org
-
 
 class GUI(QtWidgets.QMainWindow):
     # Define Class Signals
