@@ -155,7 +155,6 @@ class GUI(QtWidgets.QMainWindow):
             if self.settings:
                 self.settings.sync()
                 self.settings = None
-            path = self.data_dir
             year = diag.year.value()
 
             # Default Settings to config file
@@ -374,6 +373,12 @@ class GUI(QtWidgets.QMainWindow):
             if "ranks" not in self.db.tables():
                 query = QtSql.QSqlQuery()
                 query.exec_(utils.RANKS_SQL)
+                query.clear()
+
+            # Setup Ties table if needed
+            if "ties" not in self.db.tables():
+                query = QtSql.QSqlQuery()
+                query.exec_(utils.TIES_SQL)
                 query.clear()
 
         else:

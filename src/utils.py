@@ -42,6 +42,18 @@ RANKS_SQL = """create table ranks (
     "Ties Won" int
     );"""
 
+TIES_SQL = '''create table ties (
+    team_1_id int
+        references teams,
+    team_2_id int not null
+        references teams,
+    event_id  int not null,
+    winner    int,
+    constraint ties_pk
+        primary key (team_1_id, team_2_id, event_id)
+);
+'''
+
 SPACE_INDICATOR = "˽"
 DQ_TIME = 180 * 60 * 60
 DQ_MIN_LENGTH = 0
