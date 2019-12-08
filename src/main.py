@@ -598,7 +598,7 @@ class GUI(QtWidgets.QMainWindow):
     @staticmethod
     def excel_like_enter_filter(source: QtWidgets.QTableView, event: QtCore.QEvent):
         if event.type() == event.KeyPress:
-            if event.key() == QtCore.Qt.Key_Return:
+            if event.key() in [QtCore.Qt.Key_Return, QtCore.Qt.Key_Enter]:
                 if int(source.editTriggers()) > int(
                     QtWidgets.QAbstractItemView.NoEditTriggers
                 ):
