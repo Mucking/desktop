@@ -48,7 +48,9 @@ class BaseDelegate(QtWidgets.QStyledItemDelegate):
 
         sname = model.data(index.siblingAtColumn(1), QtCore.Qt.EditRole)
         tname = model.data(index.siblingAtColumn(2), QtCore.Qt.EditRole)
-        event = model.headerData(index.column(), QtCore.Qt.Horizontal, QtCore.Qt.DisplayRole)
+        event = model.headerData(
+            index.column(), QtCore.Qt.Horizontal, QtCore.Qt.DisplayRole
+        )
 
         self.logger.txn(f"{sname} - {tname} - {event} {value} -> {new_value}")
 
@@ -187,7 +189,10 @@ class DistanceEditDelegate(BaseDelegate):
                     f"Detected units {unit}: {string.replace(unit, '').strip()}"
                 )
                 try:
-                    cms = float(string.replace(unit, "").strip()) / utils.UNIT_FACTORS[unit]
+                    cms = (
+                        float(string.replace(unit, "").strip())
+                        / utils.UNIT_FACTORS[unit]
+                    )
                     units_detected = True
                 except ValueError:
                     self.parent().logger.error(f"Partial Unit match of input: {string}")
@@ -201,10 +206,12 @@ class DistanceEditDelegate(BaseDelegate):
 
         if not units_detected:
             self.parent().logger.error(f"Unable to detect units of input: {string}")
-            utils.alert(
-                "Could not detect Units", units_error_text, "warn"
-            )
+            utils.alert("Could not detect Units", units_error_text, "warn")
             return
+
+    @property
+    def dq_value(self):
+        raise NotImplementedError
 
 
 class HandsteelDelegate(DistanceEditDelegate):

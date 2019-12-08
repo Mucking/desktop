@@ -5,7 +5,7 @@ import sqlite3
 from PyQt5 import QtWidgets, QtCore
 
 
-TEAMS_SQL = '''create table teams (
+TEAMS_SQL = """create table teams (
     id integer 
     constraint teams_pk 
         primary key AUTOINCREMENT, 
@@ -19,9 +19,9 @@ TEAMS_SQL = '''create table teams (
     "Hand Steel"  float, 
     Jackleg float, 
     Survey double
-    );'''
+    );"""
 
-RANKS_SQL = '''create table ranks (
+RANKS_SQL = """create table ranks (
     id INTEGER 
     constraint ranks_pk 
         primary key constraint 
@@ -40,7 +40,7 @@ RANKS_SQL = '''create table ranks (
     Survey int, 
     Sum int, 
     "Ties Won" int
-    );'''
+    );"""
 
 SPACE_INDICATOR = "˽"
 DQ_TIME = 180 * 60 * 60
@@ -133,11 +133,11 @@ def get_reasonable_unit(value, is_metric):
     # TODO FRACTIONAL INCH BS
     power = math.log10(value)
     if is_metric:
-        if power <= 0.:
+        if power <= 0.0:
             units = "mm"
-        elif 0. < power < 2.:
+        elif 0.0 < power < 2.0:
             units = "cm"
-        elif power >= 5.:
+        elif power >= 5.0:
             units = "km"
         else:
             units = "m"
@@ -162,5 +162,3 @@ def get_reasonable_unit(value, is_metric):
 def txn(self, message, *args, **kwargs):
     if self.isEnabledFor(TXN_LEVEL_NUM):
         self._log(TXN_LEVEL_NUM, message, args, **kwargs)
-
-

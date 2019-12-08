@@ -22,7 +22,7 @@ class GUI(QtWidgets.QMainWindow):
         logging.Logger.txn = utils.txn
 
         self.logger = logging.getLogger("Main")
-        self.logger.setLevel(utils.TXN_LEVEL_NUM)
+        self.logger.setLevel(logging.DEBUG)
 
         formatter = logging.Formatter(
             "[%(asctime)-10s][%(levelname)-8s] %(name)-15s - %(message)s",
@@ -34,8 +34,10 @@ class GUI(QtWidgets.QMainWindow):
         self.logger.addHandler(console_handler)
 
         # Error Checking for log files
-        logs_dir = pathlib.Path(f'{self.directory}{os.sep}logs')
-        log_file = pathlib.Path(f"{logs_dir}{os.sep}mucking_{datetime.now().date()}.log")
+        logs_dir = pathlib.Path(f"{self.directory}{os.sep}logs")
+        log_file = pathlib.Path(
+            f"{logs_dir}{os.sep}mucking_{datetime.now().date()}.log"
+        )
         if not logs_dir.is_dir():
             logs_dir.mkdir()
             if not log_file.exists():
@@ -389,10 +391,7 @@ class GUI(QtWidgets.QMainWindow):
     def db_change(self) -> None:
         self.logger.warning("Unable to locate database, requesting updated location")
         db_filename = QtWidgets.QFileDialog.getOpenFileName(
-            self,
-            "Select Database File",
-            self.data_dir,
-            "Database File (*.db)",
+            self, "Select Database File", self.data_dir, "Database File (*.db)"
         )[0]
         self.settings.setValue("db/path", db_filename)
         self.db_setup()
@@ -589,12 +588,16 @@ class GUI(QtWidgets.QMainWindow):
     def excel_like_enter_filter(source: QtWidgets.QTableView, event: QtCore.QEvent):
         if event.type() == event.KeyPress:
             if event.key() == QtCore.Qt.Key_Return:
-                if int(source.editTriggers()) > int(QtWidgets.QAbstractItemView.NoEditTriggers):
+                if int(source.editTriggers()) > int(
+                    QtWidgets.QAbstractItemView.NoEditTriggers
+                ):
                     next_row = source.currentIndex().row() + 1
                     if next_row + 1 > source.model().rowCount():
                         next_row -= 1
                     if source.state() == source.EditingState:
-                        next_index = source.model().index(next_row, source.currentIndex().column())
+                        next_index = source.model().index(
+                            next_row, source.currentIndex().column()
+                        )
                         source.setCurrentIndex(next_index)
                     else:
                         source.edit(source.currentIndex())
