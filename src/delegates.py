@@ -196,18 +196,18 @@ class DistanceEditDelegate(BaseDelegate):
                     units_detected = True
                 except ValueError:
                     self.parent().logger.error(f"Partial Unit match of input: {string}")
-
-                if cms < 0:
-                    utils.alert(
-                        "Input Error", "Distances less than 0 are not valid", "warn"
-                    )
-                    return
-                return cms
+                else:
+                    if cms < 0:
+                        utils.alert(
+                            "Input Error", "Distances less than 0 are not valid", "warn"
+                        )
+                        return
+                    return cms
 
         if not units_detected:
             self.parent().logger.error(f"Unable to detect units of input: {string}")
             utils.alert("Could not detect Units", units_error_text, "warn")
-            return
+            return model
 
     @property
     def dq_value(self):
