@@ -201,6 +201,12 @@ class GUI(QtWidgets.QMainWindow):
         self.logger.info(f"Loading Competition {config_file}")
         self.settings = QtCore.QSettings(config_file, QtCore.QSettings.IniFormat)
         self.db_changed.emit()
+        # match display units to last display mode
+        display_button = getattr(
+            self,
+            f"rb_{self.settings.value('app/display', 'Imperial')}",
+        )
+        display_button.toggle()
         self.display.setCurrentWidget(self.comp_screen)
 
     def comp_save(self):
