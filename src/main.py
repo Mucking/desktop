@@ -55,7 +55,6 @@ class GUI(QtWidgets.QMainWindow):
         if not self.data_dir.is_dir():
             self.data_dir.mkdir()
 
-
         # Logging Setup
         self.logger = None
         self.setup_custom_logging()
@@ -342,7 +341,7 @@ class GUI(QtWidgets.QMainWindow):
         while loop_query.next():
             s = 0
             t_id = loop_query.value(0)
-            for i in range(4, 12):
+            for i in range(4, 11):
                 s += loop_query.value(i)
             inner_query.exec(f"UPDATE ranks SET Sum = {s} WHERE id = {t_id};")
 
@@ -480,8 +479,12 @@ class GUI(QtWidgets.QMainWindow):
         self.team_table.resizeColumnsToContents()
 
         # Needs to be setup here as model is not setup in init
-        # Only need to connect to 1 since there are 2 exclusive buttons
         self.rb_imperial.toggled.connect(self.data_model.select)
+        self.rb_metric.toggled.connect(self.data_model.select)
+        self.rb_rank.toggled.connect(self.rank_model.select)
+        self.rb_imperial.toggled.connect(self.model_change)
+        self.rb_metric.toggled.connect(self.model_change)
+        self.rb_rank.toggled.connect(self.model_change)
 
     # Team Management Functions
     def team_create(self):

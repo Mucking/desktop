@@ -109,21 +109,26 @@ class TimeEditDelegate(BaseDelegate):
         if not value:
             return ""
 
-        if value == utils.DQ_TIME:
-            return "DQ"
-        if self.parent().settings.value("units/time", "ssss.ss") == "ssss.ss":
-            s_time = f"{value:7.2f}"
+        display_mode = self.parent().settings.value("app/display")
+
+        if display_mode == "rank":
+            return str(value)
         else:
-            hours = int(value // 3600)
-            minutes = int((value - hours * 3600) // 60)
-            seconds = value - hours * 3600 - minutes * 60
+            if value == utils.DQ_TIME:
+                return "DQ"
+            if self.parent().settings.value("units/time", "ssss.ss") == "ssss.ss":
+                s_time = f"{value:7.2f}"
+            else:
+                hours = int(value // 3600)
+                minutes = int((value - hours * 3600) // 60)
+                seconds = value - hours * 3600 - minutes * 60
 
-            s_time = f"{minutes}:{seconds:05.2f}"
+                s_time = f"{minutes}:{seconds:05.2f}"
 
-            if hours:
-                s_time = f"{hours}:" + s_time
+                if hours:
+                    s_time = f"{hours}:" + s_time
 
-        return s_time
+            return s_time
 
     def modelUpdate(self, editor, model, index):
         value = editor.text()
@@ -212,20 +217,26 @@ class HandsteelDelegate(DistanceEditDelegate):
         if not value:
             return ""
 
-        # Check display units
-        if self.parent().settings.value("app/display", "metric") == "metric":
-            units = self.parent().settings.value("munits/handsteel", "mm")
+        display_mode = self.parent().settings.value("app/display")
+
+        if display_mode == "rank":
+            return str(value)
         else:
-            units = self.parent().settings.value("iunits/handsteel", "in")
+            # Check display units
+            if self.parent().settings.value("app/display", "metric") == "metric":
+                units = self.parent().settings.value("munits/handsteel", "mm")
+            else:
+                units = self.parent().settings.value("iunits/handsteel", "in")
 
-        # Dynamic Unit Selection Support
-        if units == "dynamic":
-            units = utils.get_reasonable_unit(
-                value, self.parent().settings.value("app/display", "metric") == "metric"
-            )
+            # Dynamic Unit Selection Support
+            if units == "dynamic":
+                units = utils.get_reasonable_unit(
+                    value,
+                    self.parent().settings.value("app/display", "metric") == "metric",
+                )
 
-        # Convert and display
-        return f"{value * utils.UNIT_FACTORS[units]:.2f} {units}"
+            # Convert and display
+            return f"{value * utils.UNIT_FACTORS[units]:.2f} {units}"
 
     @property
     def dq_value(self):
@@ -241,15 +252,19 @@ class JacklegDelegate(DistanceEditDelegate):
         # Check for null values
         if not value:
             return ""
+        display_mode = self.parent().settings.value("app/display")
 
-        # Check display units
-        if self.parent().settings.value("app/display", "metric") == "metric":
-            units = self.parent().settings.value("munits/jackleg", "cm")
-        elif self.parent().settings.value("app/display", "imperial") == "imperial":
-            units = self.parent().settings.value("iunits/jackleg", "in")
+        if display_mode == "rank":
+            return str(value)
+        else:
+            # Check display units
+            if self.parent().settings.value("app/display", "metric") == "metric":
+                units = self.parent().settings.value("munits/jackleg", "cm")
+            elif self.parent().settings.value("app/display", "imperial") == "imperial":
+                units = self.parent().settings.value("iunits/jackleg", "in")
 
-        # Convert and display
-        return f"{value * utils.UNIT_FACTORS[units]:.2f} {units}"
+            # Convert and display
+            return f"{value * utils.UNIT_FACTORS[units]:.2f} {units}"
 
     @property
     def dq_value(self):
@@ -266,19 +281,25 @@ class SurveyDelegate(DistanceEditDelegate):
         if value == utils.DQ_MAX_LENGTH:
             return "DQ"
 
-        # Check display units
-        if self.parent().settings.value("app/display", "metric") == "metric":
-            units = self.parent().settings.value("munits/survey", "dynamic")
+        display_mode = self.parent().settings.value("app/display")
+
+        if display_mode == "rank":
+            return str(value)
         else:
-            units = self.parent().settings.value("iunits/survey", "dynamic")
+            # Check display units
+            if self.parent().settings.value("app/display", "metric") == "metric":
+                units = self.parent().settings.value("munits/survey", "dynamic")
+            else:
+                units = self.parent().settings.value("iunits/survey", "dynamic")
 
-        # Convert and display
-        if units == "dynamic":
-            units = utils.get_reasonable_unit(
-                value, self.parent().settings.value("app/display", "metric") == "metric"
-            )
+            # Convert and display
+            if units == "dynamic":
+                units = utils.get_reasonable_unit(
+                    value,
+                    self.parent().settings.value("app/display", "metric") == "metric",
+                )
 
-        return f"{value * utils.UNIT_FACTORS[units]:.3f} {units: >2}"
+            return f"{value * utils.UNIT_FACTORS[units]:.3f} {units: >2}"
 
     @property
     def dq_value(self):
