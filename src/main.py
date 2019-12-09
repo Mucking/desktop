@@ -440,7 +440,7 @@ class GUI(QtWidgets.QMainWindow):
     def db_change(self) -> None:
         self.logger.warning("Unable to locate database, requesting updated location")
         db_filename = QtWidgets.QFileDialog.getOpenFileName(
-            self, "Select Database File", self.data_dir, "Database File (*.db)"
+            self, "Select Database File", str(self.data_dir), "Database File (*.db)"
         )[0]
         self.settings.setValue("db/path", db_filename)
         self.db_setup()
