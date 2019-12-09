@@ -493,6 +493,9 @@
      <string>Edit</string>
     </property>
     <addaction name="a_edit_preferences"/>
+    <addaction name="separator"/>
+    <addaction name="a_edit_add_team"/>
+    <addaction name="a_edit_add_tie"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -617,6 +620,16 @@
   <action name="a_comp_close">
    <property name="text">
     <string>Close</string>
+   </property>
+  </action>
+  <action name="a_edit_add_team">
+   <property name="text">
+    <string>Add Team</string>
+   </property>
+  </action>
+  <action name="a_edit_add_tie">
+   <property name="text">
+    <string>Add Tie</string>
    </property>
   </action>
  </widget>

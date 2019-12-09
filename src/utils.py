@@ -93,6 +93,17 @@ UNIT_SHORTHAND = {
     "dynamic": "dynamic",
 }
 
+events = {
+            -1: "",
+            1: "Mucking",
+            2: "Swede Saw",
+            3: "Track Stand",
+            4: "Gold Pan",
+            5: "Hand Steel",
+            6: "Jackleg",
+            7: "Survey",
+        }
+
 
 def alert(window_title, text, alert="info"):
     alert_type = {

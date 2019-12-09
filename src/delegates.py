@@ -207,7 +207,7 @@ class DistanceEditDelegate(BaseDelegate):
         if not units_detected:
             self.parent().logger.error(f"Unable to detect units of input: {string}")
             utils.alert("Could not detect Units", units_error_text, "warn")
-            return model
+            return
 
     @property
     def dq_value(self):

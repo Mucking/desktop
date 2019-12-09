@@ -120,6 +120,10 @@ class GUI(QtWidgets.QMainWindow):
         action_quit.triggered.connect(self.close)
         action_settings = self.findChild(QtWidgets.QAction, "a_edit_preferences")
         action_settings.triggered.connect(self.settings_modify)
+        action_add_team = self.findChild(QtWidgets.QAction, "a_edit_add_team")
+        action_add_team.triggered.connect(self.team_create)
+        action_add_tie = self.findChild(QtWidgets.QAction, "a_edit_add_tie")
+        action_add_tie.triggered.connect(self.tie_add)
 
         # Context Menu Setup
         self.logger.info("Setting Up Context Menu")
@@ -133,6 +137,10 @@ class GUI(QtWidgets.QMainWindow):
         context_action_del_team.triggered.connect(self.team_delete)
         self.addAction(context_action_del_team)
 
+        context_action_add_tie = QtWidgets.QAction("Add Tie", self)
+        context_action_add_tie.triggered.connect(self.tie_add)
+        self.addAction(context_action_add_tie)
+
         # Default to welcome screen
         self.display.setCurrentWidget(self.welcome_screen)
 
@@ -145,6 +153,29 @@ class GUI(QtWidgets.QMainWindow):
         self.db_setup()
         self.model_setup()
         self.view_setup()
+
+    # Tie functions
+    def tie_add(self):
+        indexes = self.team_table.selectionModel().selectedRows()
+        if not len(indexes) == 2:
+            diag = dialogs.TieDialog()
+        else:
+            diag = dialogs.TieDialog(indexes[0].row(), indexes[1].row())
+
+        if diag.exec_():
+            t1_id = diag.team_1.currentData()
+            t1_name = diag.team_1.currentText()
+            t2_id = diag.team_2.currentData()
+            t2_name = diag.team_2.currentText()
+            e_id = diag.tie_event.currentData()
+            e_name = diag.tie_event.currentText()
+            w_id = diag.winner.currentData()
+            w_name = diag.winner.currentText()
+            query = QtSql.QSqlQuery()
+            self.logger.txn(f"Add Tie between {t1_name} and {t2_name}, E: {e_name}, W: {w_name}")
+            query.exec_(f"INSERT INTO ties VALUES ({t1_id}, {t2_id}, {e_id}, {w_id});")
+            query.clear()
+            del query
 
     # Competition Management Functions
     def comp_create(self):
@@ -342,6 +373,13 @@ class GUI(QtWidgets.QMainWindow):
                     inner_query.exec(
                         f'UPDATE ranks SET "{event}" = {dq_score} where Division="{div}" and "{event}"=0;'
                     )
+
+        # Handle Ties
+        # TODO:
+        #  Check for ties,
+        #  For each tie set both teams to the lowest for each event
+        #  Update Ties Won
+        #  Update final Scoring to account for ties won
 
         self.logger.debug("Computing Total Scores")
         loop_query.exec("SELECT * from ranks;")

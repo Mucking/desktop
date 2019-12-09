@@ -1,8 +1,9 @@
 import datetime
 import logging
 import os
-from PyQt5 import QtWidgets, uic
+from PyQt5 import QtWidgets, uic, QtSql
 from PyQt5.QtCore import pyqtSignal
+import utils
 
 
 class NewComp(QtWidgets.QDialog):
@@ -50,6 +51,44 @@ class NewTeam(QtWidgets.QDialog):
             self.ok.setEnabled(False)
         else:
             self.ok.setEnabled(True)
+
+
+class TieDialog(QtWidgets.QDialog):
+    team_changed = pyqtSignal()
+
+    def __init__(self, team_1_id=1, team_2_id=1):
+        super(TieDialog, self).__init__()
+        uic.loadUi(f"ui{os.sep}new_tie.ui", self)
+        self.logger = logging.getLogger("Main.NewTie")
+        self.setWindowTitle("New Tie")
+        self.team_1 = self.findChild(QtWidgets.QComboBox, "cb_team_1")
+        self.team_2 = self.findChild(QtWidgets.QComboBox, "cb_team_2")
+        self.tie_event = self.findChild(QtWidgets.QComboBox, "cb_event")
+        self.winner = self.findChild(QtWidgets.QComboBox, "cb_winner")
+        self.setup_combos(team_1_id, team_2_id)
+        self.team_1.currentIndexChanged.connect(self.update_winner_box)
+        self.team_2.currentIndexChanged.connect(self.update_winner_box)
+        self.update_winner_box()
+
+    def setup_combos(self, team_1_id, team_2_id):
+        for key in utils.events:
+            self.tie_event.addItem(utils.events[key], key)
+
+        query = QtSql.QSqlQuery()
+        query.exec_("SELECT id, Name FROM teams;")
+        while query.next():
+            self.team_1.addItem(query.value(1), query.value(0))
+            self.team_2.addItem(query.value(1), query.value(0))
+        query.clear()
+        del query
+        self.team_1.setCurrentIndex(self.team_1.findData(team_1_id) + 1)
+        self.team_2.setCurrentIndex(self.team_2.findData(team_2_id) + 1)
+
+    def update_winner_box(self):
+        self.winner.clear()
+        self.winner.addItem("", -1)
+        self.winner.addItem(self.team_1.currentText(), self.team_1.currentData())
+        self.winner.addItem(self.team_2.currentText(), self.team_2.currentData())
 
 
 class RetryDialog(QtWidgets.QDialog):
