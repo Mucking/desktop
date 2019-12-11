@@ -160,7 +160,21 @@ class GUI(QtWidgets.QMainWindow):
         if not len(indexes) == 2:
             diag = dialogs.TieDialog()
         else:
-            diag = dialogs.TieDialog(indexes[0].row(), indexes[1].row())
+            query = QtSql.QSqlQuery()
+            query.exec_(f"SELECT Division from teams where id = {indexes[0].row()};")
+            query.next()
+            t1_div = query.value(0)
+            query.exec_(f"SELECT Division from teams where id = {indexes[1].row()};")
+            query.next()
+            t2_div = query.value(0)
+            query.clear()
+            del query
+
+            if t1_div != t2_div:
+                utils.alert("Error", "Ties can only ", "crit")
+                return
+            else:
+                diag = dialogs.TieDialog(indexes[0].row(), indexes[1].row())
 
         if diag.exec_():
             t1_id = diag.team_1.currentData()
