@@ -60,6 +60,9 @@ class TieDialog(QtWidgets.QDialog):
         super(TieDialog, self).__init__()
         uic.loadUi(f"ui{os.sep}new_tie.ui", self)
         self.logger = logging.getLogger("Main.NewTie")
+        self.bb = self.findChild(QtWidgets.QDialogButtonBox)
+        self.ok = self.bb.button(self.bb.Ok)
+        self.ok.setEnabled(False)
         self.setWindowTitle("New Tie")
         self.team_1 = self.findChild(QtWidgets.QComboBox, "cb_team_1")
         self.team_2 = self.findChild(QtWidgets.QComboBox, "cb_team_2")
@@ -69,6 +72,15 @@ class TieDialog(QtWidgets.QDialog):
         self.team_1.currentIndexChanged.connect(self.update_winner_box)
         self.team_2.currentIndexChanged.connect(self.update_winner_box)
         self.update_winner_box()
+        self.tie_event.currentIndexChanged.connect(self.verify)
+        self.winner.currentIndexChanged.connect(self.verify)
+
+    def verify(self):
+        self.logger.debug("Event Must be non blank")
+        if not self.winner.currentText() or not self.tie_event.currentText():
+            self.ok.setEnabled(False)
+        else:
+            self.ok.setEnabled(True)
 
     def setup_combos(self, team_1_id, team_2_id):
         for event in utils.events:
