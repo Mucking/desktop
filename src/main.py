@@ -167,13 +167,12 @@ class GUI(QtWidgets.QMainWindow):
             t1_name = diag.team_1.currentText()
             t2_id = diag.team_2.currentData()
             t2_name = diag.team_2.currentText()
-            e_id = diag.tie_event.currentData()
             e_name = diag.tie_event.currentText()
             w_id = diag.winner.currentData()
             w_name = diag.winner.currentText()
             query = QtSql.QSqlQuery()
             self.logger.txn(f"Add Tie between {t1_name} and {t2_name}, E: {e_name}, W: {w_name}")
-            query.exec_(f"INSERT INTO ties VALUES ({t1_id}, {t2_id}, {e_id}, {w_id});")
+            query.exec_(f"INSERT INTO ties VALUES ({t1_id}, {t2_id}, '{e_name}', {w_id});")
             query.clear()
             del query
 

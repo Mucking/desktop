@@ -71,8 +71,8 @@ class TieDialog(QtWidgets.QDialog):
         self.update_winner_box()
 
     def setup_combos(self, team_1_id, team_2_id):
-        for key in utils.events:
-            self.tie_event.addItem(utils.events[key], key)
+        for event in utils.events:
+            self.tie_event.addItem(event)
 
         query = QtSql.QSqlQuery()
         query.exec_("SELECT id, Name FROM teams;")
