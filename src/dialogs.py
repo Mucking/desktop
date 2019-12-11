@@ -56,7 +56,7 @@ class NewTeam(QtWidgets.QDialog):
 class TieDialog(QtWidgets.QDialog):
     team_changed = pyqtSignal()
 
-    def __init__(self, team_1_id=1, team_2_id=1):
+    def __init__(self, team_1_id=None, team_2_id=None):
         super(TieDialog, self).__init__()
         uic.loadUi(f"ui{os.sep}new_tie.ui", self)
         self.logger = logging.getLogger("Main.NewTie")
@@ -70,13 +70,13 @@ class TieDialog(QtWidgets.QDialog):
         self.winner = self.findChild(QtWidgets.QComboBox, "cb_winner")
         self.setup_combos(team_1_id, team_2_id)
         self.team_1.currentIndexChanged.connect(self.update_winner_box)
+        self.team_1.currentIndexChanged.connect(self.update_combo_2)
         self.team_2.currentIndexChanged.connect(self.update_winner_box)
         self.update_winner_box()
         self.tie_event.currentIndexChanged.connect(self.verify)
         self.winner.currentIndexChanged.connect(self.verify)
 
     def verify(self):
-        self.logger.debug("Event Must be non blank")
         if not self.winner.currentText() or not self.tie_event.currentText():
             self.ok.setEnabled(False)
         else:
@@ -90,11 +90,31 @@ class TieDialog(QtWidgets.QDialog):
         query.exec_("SELECT id, Name FROM teams;")
         while query.next():
             self.team_1.addItem(query.value(1), query.value(0))
-            self.team_2.addItem(query.value(1), query.value(0))
         query.clear()
         del query
-        self.team_1.setCurrentIndex(self.team_1.findData(team_1_id) + 1)
-        self.team_2.setCurrentIndex(self.team_2.findData(team_2_id) + 1)
+
+        if team_1_id:
+            self.team_1.setCurrentIndex(self.team_1.findData(team_1_id) + 1)
+
+        self.update_combo_2()
+
+        if team_2_id:
+            self.team_2.setCurrentIndex(self.team_2.findData(team_2_id) + 1)
+
+
+    def update_combo_2(self):
+        team_1_id = self.team_1.currentData()
+        query = QtSql.QSqlQuery()
+        query.exec_(f"SELECT Division from teams WHERE id = {team_1_id}")
+        query.next()
+        div = query.value(0)
+        query.exec_(f"SELECT id, Name FROM teams WHERE Division = '{div}';")
+        self.team_2.clear()
+        while query.next():
+            if query.value(0) != team_1_id:
+                self.team_2.addItem(query.value(1), query.value(0))
+        query.clear()
+        del query
 
     def update_winner_box(self):
         self.winner.clear()
