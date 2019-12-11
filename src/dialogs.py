@@ -101,7 +101,6 @@ class TieDialog(QtWidgets.QDialog):
         if team_2_id:
             self.team_2.setCurrentIndex(self.team_2.findData(team_2_id) + 1)
 
-
     def update_combo_2(self):
         team_1_id = self.team_1.currentData()
         query = QtSql.QSqlQuery()

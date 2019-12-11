@@ -42,7 +42,7 @@ RANKS_SQL = """create table ranks (
     "Ties Won" int
     );"""
 
-TIES_SQL = '''create table ties (
+TIES_SQL = """create table ties (
     team_1_id int
         references teams,
     team_2_id int not null
@@ -52,7 +52,7 @@ TIES_SQL = '''create table ties (
     constraint ties_pk
         primary key (team_1_id, team_2_id, event_id)
 );
-'''
+"""
 
 SPACE_INDICATOR = "˽"
 DQ_TIME = 180 * 60 * 60
@@ -94,15 +94,15 @@ UNIT_SHORTHAND = {
 }
 
 events = [
-            "",
-            "Mucking",
-            "Swede Saw",
-            "Track Stand",
-            "Gold Pan",
-            "Hand Steel",
-            "Jackleg",
-            "Survey",
-        ]
+    "",
+    "Mucking",
+    "Swede Saw",
+    "Track Stand",
+    "Gold Pan",
+    "Hand Steel",
+    "Jackleg",
+    "Survey",
+]
 
 
 def alert(window_title, text, alert="info"):

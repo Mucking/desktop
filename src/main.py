@@ -188,8 +188,12 @@ class GUI(QtWidgets.QMainWindow):
             w_id = diag.winner.currentData()
             w_name = diag.winner.currentText()
             query = QtSql.QSqlQuery()
-            self.logger.txn(f"Add Tie between {t1_name} and {t2_name}, E: {e_name}, W: {w_name}")
-            query.exec_(f"INSERT INTO ties VALUES ({t1_id}, {t2_id}, '{e_name}', {w_id});")
+            self.logger.txn(
+                f"Add Tie between {t1_name} and {t2_name}, E: {e_name}, W: {w_name}"
+            )
+            query.exec_(
+                f"INSERT INTO ties VALUES ({t1_id}, {t2_id}, '{e_name}', {w_id});"
+            )
             query.clear()
             del query
 
@@ -250,8 +254,7 @@ class GUI(QtWidgets.QMainWindow):
         self.db_changed.emit()
         # match display units to last display mode
         display_button = getattr(
-            self,
-            f"rb_{self.settings.value('app/display', 'Imperial')}",
+            self, f"rb_{self.settings.value('app/display', 'Imperial')}"
         )
         display_button.toggle()
         self.display.setCurrentWidget(self.comp_screen)
