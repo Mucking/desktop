@@ -9,7 +9,7 @@ import delegates
 import utils
 import pathlib
 
-VERSION = "2019.00.75"
+VERSION = "2019.00.90"
 
 
 class GUI(QtWidgets.QMainWindow):
