@@ -47,7 +47,7 @@ TIES_SQL = """create table ties (
         references teams,
     team_2_id int not null
         references teams,
-    event_id  int not null,
+    event_id  text not null,
     winner    int,
     constraint ties_pk
         primary key (team_1_id, team_2_id, event_id)
