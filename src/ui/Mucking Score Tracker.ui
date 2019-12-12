@@ -508,6 +508,7 @@
     <property name="title">
      <string>View</string>
     </property>
+    <addaction name="a_view_ties"/>
     <addaction name="a_view_records"/>
     <addaction name="a_view_scoreboard"/>
    </widget>
@@ -630,6 +631,11 @@
   <action name="a_edit_add_tie">
    <property name="text">
     <string>Add Tie</string>
+   </property>
+  </action>
+  <action name="a_view_ties">
+   <property name="text">
+    <string>Ties</string>
    </property>
   </action>
  </widget>

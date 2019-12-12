@@ -7,6 +7,7 @@ from PyQt5 import QtCore, QtWidgets, uic, QtSql
 import dialogs
 import delegates
 import utils
+import ties
 import pathlib
 
 VERSION = "2019.00.90"
@@ -90,6 +91,7 @@ class GUI(QtWidgets.QMainWindow):
         self.rb_rank.toggled.connect(self.units_update)
         self.team_table = self.findChild(QtWidgets.QTableView, "teams_table")
         self.team_table.installEventFilter(self)
+        self.ties_window = None
         b_team_add = self.findChild(QtWidgets.QPushButton, "b_team_add")
         b_team_add.clicked.connect(self.team_create)
         b_comp_score = self.findChild(QtWidgets.QPushButton, "b_comp_score")
@@ -552,6 +554,9 @@ class GUI(QtWidgets.QMainWindow):
         self.rb_imperial.toggled.connect(self.model_change)
         self.rb_metric.toggled.connect(self.model_change)
         self.rb_rank.toggled.connect(self.model_change)
+        self.ties_window = ties.TieWindow(self, self.db)
+        action_view_ties = self.findChild(QtWidgets.QAction, "a_view_ties")
+        action_view_ties.triggered.connect(self.ties_window.show)
 
     # Team Management Functions
     def team_create(self):
