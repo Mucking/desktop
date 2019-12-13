@@ -1,6 +1,7 @@
 from PyQt5 import QtWidgets, QtSql, QtCore, uic
 import logging
 import os
+import utils
 
 
 class TieWindow(QtWidgets.QMainWindow):
@@ -20,26 +21,54 @@ class TieWindow(QtWidgets.QMainWindow):
         self.logger.info("Initializing Model")
         tie_model = QtSql.QSqlRelationalTableModel(self)
         tie_model.setTable("ties")
-        tie_model.setRelation(0, QtSql.QSqlRelation("teams", "id", "Name"))
+        tie_model.setHeaderData(1, QtCore.Qt.Horizontal, "Team 1")
+        tie_model.setHeaderData(2, QtCore.Qt.Horizontal, "Team 2")
+        tie_model.setHeaderData(3, QtCore.Qt.Horizontal, "Event")
+        tie_model.setHeaderData(4, QtCore.Qt.Horizontal, "Winner")
         tie_model.setRelation(1, QtSql.QSqlRelation("teams", "id", "Name"))
-        tie_model.setRelation(3, QtSql.QSqlRelation("teams", "id", "Name"))
+        tie_model.setRelation(2, QtSql.QSqlRelation("teams", "id", "Name"))
+        tie_model.setRelation(4, QtSql.QSqlRelation("teams", "id", "Name"))
         tie_model.setEditStrategy(QtSql.QSqlTableModel.OnFieldChange)
         tie_model.select()
         self.model = tie_model
+        self.model.dataChanged.connect(self.update_min_width)
 
     def view_setup(self):
         self.local_delegates = []
         self.table.setModel(self.model)
-        self.local_delegates.append(ReadOnlyDelegate(self.table))
-        self.table.setItemDelegateForColumn(0, self.local_delegates[-1])
+        self.table.resizeColumnsToContents()
+        self.table.setColumnHidden(0, True)
         self.local_delegates.append(ReadOnlyDelegate(self.table))
         self.table.setItemDelegateForColumn(1, self.local_delegates[-1])
-        self.local_delegates.append(QtSql.QSqlRelationalDelegate(self.table))
+        self.local_delegates.append(ReadOnlyDelegate(self.table))
+        self.table.setItemDelegateForColumn(2, self.local_delegates[-1])
+        self.local_delegates.append(EventDelegate(self.table))
         self.table.setItemDelegateForColumn(3, self.local_delegates[-1])
+        self.local_delegates.append(WinnerDelegate(self.table))
+        self.table.setItemDelegateForColumn(4, self.local_delegates[-1])
+        self.table.horizontalHeader().setSectionResizeMode(
+            QtWidgets.QHeaderView.ResizeToContents
+        )
+        self.update_min_width()
+        self.table.horizontalHeader().setSectionResizeMode(
+            3, QtWidgets.QHeaderView.Fixed
+        )
+        self.table.setColumnWidth(3, 80)
+        self.table.horizontalHeader().setSectionResizeMode(
+            4, QtWidgets.QHeaderView.Stretch
+        )
 
     def show(self):
         self.model.select()
         super(TieWindow, self).show()
+
+    def update_min_width(self):
+        self.centralWidget().setMinimumWidth(
+            self.table.horizontalHeader().length() + self.table.verticalHeader().width()
+        )
+        self.window().resize(
+            self.centralWidget().minimumWidth(), self.centralWidget().height()
+        )
 
 
 class ReadOnlyDelegate(QtSql.QSqlRelationalDelegate):
@@ -52,11 +81,33 @@ class ReadOnlyDelegate(QtSql.QSqlRelationalDelegate):
     def createEditor(self, parent, option, index):
         return None
 
-# TODO:
-#   New Delegate for event column
-#   New Delegate for winner column
-#   Header Data
+
+class EventDelegate(QtWidgets.QItemDelegate):
+    def __init__(self, parent=None):
+        super(EventDelegate, self).__init__(parent=parent)
+
+    def setEditorData(self, editor, index):
+        value = index.model().data(index, QtCore.Qt.EditRole)
+        if value:
+            editor.setCurrentIndex(editor.findText(value))
+
+    def createEditor(self, parent, option, index):
+        editor = QtWidgets.QComboBox(parent)
+        editor.addItems(utils.events)
+        return editor
+
+    def setModelData(self, editor, model, index) -> None:
+        model.setData(index, editor.currentText(), QtCore.Qt.EditRole)
 
 
+class WinnerDelegate(QtSql.QSqlRelationalDelegate):
+    # TODO: Figure out how to limit this edit box to just team 1 or team 2
+    def __init__(self, parent=None):
+        super(WinnerDelegate, self).__init__(parent=parent)
 
-
+    def createEditor(self, parent, option, index):
+        editor = QtWidgets.QComboBox(parent)
+        t_1_name = index.siblingAtColumn(1).data(QtCore.Qt.EditRole)
+        t_2_name = index.siblingAtColumn(2).data(QtCore.Qt.EditRole)
+        editor.addItems([t_1_name, t_2_name])
+        return editor
