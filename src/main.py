@@ -194,7 +194,7 @@ class GUI(QtWidgets.QMainWindow):
                 f"Add Tie between {t1_name} and {t2_name}, E: {e_name}, W: {w_name}"
             )
             query.exec_(
-                f"INSERT INTO ties VALUES ({t1_id}, {t2_id}, '{e_name}', {w_id});"
+                f"INSERT INTO ties (team_1_id, team_2_id, event, winner) VALUES ({t1_id}, {t2_id}, '{e_name}', {w_id});"
             )
             query.clear()
             del query

@@ -43,16 +43,23 @@ RANKS_SQL = """create table ranks (
     );"""
 
 TIES_SQL = """create table ties (
-    team_1_id int
-        references teams,
+    id integer not null
+        constraint ties_pk
+            primary key autoincrement,
+    team_1_id int not null
+        constraint ties_teams_id_fk
+            references teams
+                on delete cascade,
     team_2_id int not null
-        references teams,
-    event_id  text not null,
-    winner    int,
-    constraint ties_pk
-        primary key (team_1_id, team_2_id, event_id)
-);
-"""
+        constraint ties_teams_id_fk_2
+            references teams
+                on delete cascade,
+    event text not null,
+    winner int not null
+        constraint ties_teams_id_fk_3
+            references teams
+                on delete cascade
+);"""
 
 SPACE_INDICATOR = "˽"
 DQ_TIME = 180 * 60 * 60
