@@ -16,6 +16,9 @@ class TieWindow(QtWidgets.QMainWindow):
         self.local_delegates = None
         self.model_setup()
         self.view_setup()
+        self.window().resize(
+            self.centralWidget().minimumWidth(), self.centralWidget().height()
+        )
 
     def model_setup(self):
         self.logger.info("Initializing Model")
@@ -27,7 +30,6 @@ class TieWindow(QtWidgets.QMainWindow):
         tie_model.setHeaderData(4, QtCore.Qt.Horizontal, "Winner")
         tie_model.setRelation(1, QtSql.QSqlRelation("teams", "id", "Name"))
         tie_model.setRelation(2, QtSql.QSqlRelation("teams", "id", "Name"))
-        tie_model.setRelation(4, QtSql.QSqlRelation("teams", "id", "Name"))
         tie_model.setEditStrategy(QtSql.QSqlTableModel.OnFieldChange)
         tie_model.select()
         self.model = tie_model
@@ -66,9 +68,6 @@ class TieWindow(QtWidgets.QMainWindow):
         self.centralWidget().setMinimumWidth(
             self.table.horizontalHeader().length() + self.table.verticalHeader().width()
         )
-        self.window().resize(
-            self.centralWidget().minimumWidth(), self.centralWidget().height()
-        )
 
 
 class ReadOnlyDelegate(QtSql.QSqlRelationalDelegate):
@@ -101,13 +100,35 @@ class EventDelegate(QtWidgets.QItemDelegate):
 
 
 class WinnerDelegate(QtSql.QSqlRelationalDelegate):
-    # TODO: Figure out how to limit this edit box to just team 1 or team 2
     def __init__(self, parent=None):
         super(WinnerDelegate, self).__init__(parent=parent)
+
+    def paint(self, painter, option, index):
+        painter.save()
+
+        # Select highlighting
+        if option.state & QtWidgets.QStyle.State_Selected:
+            painter.fillRect(option.rect, option.palette.highlight())
+            painter.setPen(option.palette.highlightedText().color())
+
+        rect = option.rect
+        rect -= QtCore.QMargins(6, 6, 6, 6)
+        t_1_name = index.siblingAtColumn(1).data(QtCore.Qt.EditRole)
+        t_2_name = index.siblingAtColumn(2).data(QtCore.Qt.EditRole)
+        value = [t_1_name, t_2_name][not index.data(QtCore.Qt.EditRole)]
+        painter.drawText(rect, (QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter), str(value))
+
+        painter.restore()
 
     def createEditor(self, parent, option, index):
         editor = QtWidgets.QComboBox(parent)
         t_1_name = index.siblingAtColumn(1).data(QtCore.Qt.EditRole)
         t_2_name = index.siblingAtColumn(2).data(QtCore.Qt.EditRole)
-        editor.addItems([t_1_name, t_2_name])
+        editor.clear()
+        editor.addItem(t_1_name, 1)
+        editor.addItem(t_2_name, 0)
+        editor.setCurrentIndex(not index.data(QtCore.Qt.EditRole))
         return editor
+
+    def setModelData(self, editor, model, index) -> None:
+        model.setData(index, editor.currentData(), QtCore.Qt.EditRole)
