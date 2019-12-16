@@ -125,7 +125,7 @@ class GUI(QtWidgets.QMainWindow):
         action_add_team = self.findChild(QtWidgets.QAction, "a_edit_add_team")
         action_add_team.triggered.connect(self.team_create)
         action_add_tie = self.findChild(QtWidgets.QAction, "a_edit_add_tie")
-        action_add_tie.triggered.connect(self.tie_add)
+        action_add_tie.triggered.connect(lambda: self.tie_add(use_selections=True))
 
         # Context Menu Setup
         self.logger.info("Setting Up Context Menu")
@@ -140,7 +140,7 @@ class GUI(QtWidgets.QMainWindow):
         self.addAction(context_action_del_team)
 
         context_action_add_tie = QtWidgets.QAction("Add Tie", self)
-        context_action_add_tie.triggered.connect(self.tie_add)
+        context_action_add_tie.triggered.connect(lambda: self.tie_add(use_selections=True))
         self.addAction(context_action_add_tie)
 
         # Default to welcome screen
@@ -157,8 +157,11 @@ class GUI(QtWidgets.QMainWindow):
         self.view_setup()
 
     # Tie functions
-    def tie_add(self):
-        indexes = self.team_table.selectionModel().selectedRows()
+    def tie_add(self, use_selections=True):
+        if use_selections:
+            indexes = self.team_table.selectionModel().selectedRows()
+        else:
+            indexes = []
         if len(indexes) == 1:
             diag = dialogs.TieDialog(indexes[0].row())
         elif len(indexes) == 2:
@@ -198,6 +201,7 @@ class GUI(QtWidgets.QMainWindow):
             )
             query.clear()
             del query
+            self.ties_window.model.select()
 
     # Competition Management Functions
     def comp_create(self):
