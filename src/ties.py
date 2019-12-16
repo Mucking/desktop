@@ -16,9 +16,6 @@ class TieWindow(QtWidgets.QMainWindow):
         self.local_delegates = None
         self.model_setup()
         self.view_setup()
-        self.window().resize(
-            self.centralWidget().minimumWidth(), self.centralWidget().height()
-        )
 
         # Context Menu Setup
         self.logger.info("Setting Up Context Menu")
@@ -84,14 +81,13 @@ class TieWindow(QtWidgets.QMainWindow):
         self.table.setItemDelegateForColumn(3, self.local_delegates[-1])
         self.local_delegates.append(WinnerDelegate(self.table))
         self.table.setItemDelegateForColumn(4, self.local_delegates[-1])
-        self.table.horizontalHeader().setSectionResizeMode(
-            QtWidgets.QHeaderView.ResizeToContents
-        )
-        self.update_min_width()
-        self.table.horizontalHeader().setSectionResizeMode(
-            3, QtWidgets.QHeaderView.Fixed
-        )
-        self.table.setColumnWidth(3, 80)
+        max_width = self.parent().team_table.columnWidth(2)
+        for i in range(1, 5):
+            self.table.horizontalHeader().setSectionResizeMode(
+                i, QtWidgets.QHeaderView.Fixed
+            )
+            self.table.setColumnWidth(i, max_width)
+        self.table.setColumnWidth(3, 100)
         self.table.horizontalHeader().setSectionResizeMode(
             4, QtWidgets.QHeaderView.Stretch
         )
