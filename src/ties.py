@@ -20,6 +20,42 @@ class TieWindow(QtWidgets.QMainWindow):
             self.centralWidget().minimumWidth(), self.centralWidget().height()
         )
 
+        # Context Menu Setup
+        self.logger.info("Setting Up Context Menu")
+        self.setContextMenuPolicy(QtCore.Qt.ActionsContextMenu)
+        context_action_add_tie = QtWidgets.QAction("Add Tie", self)
+        context_action_add_tie.triggered.connect(lambda: self.parent().tie_add(False))
+        self.addAction(context_action_add_tie)
+        context_action_del_tie = QtWidgets.QAction("Delete Tie", self)
+        context_action_del_tie.triggered.connect(self.tie_del)
+        self.addAction(context_action_del_tie)
+
+    def tie_del(self):
+        index = self.table.selectedIndexes()
+
+        if index:
+            index = index[0]
+        else:
+            utils.alert("No Tie Selected", "Please Select a tie to delete", "warn")
+            return
+
+        backup = []
+        for i in range(self.model.columnCount()):
+            value = self.model.data(self.model.index(index.row(), i))
+            backup.append(value)
+
+        confirmation = utils.confirm(
+            "Delete Team",
+            f"Do you want to delete the Tie between the following teams?\n{backup[1]}  -  {backup[2]}",
+        )
+        if confirmation == QtWidgets.QMessageBox.Yes:
+            self.logger.info("Deleting Tie")
+            self.logger.txn(f"[Deleted] Tie Data - {backup}")
+            self.model.deleteRowFromTable(index.row())
+            self.model.select()
+        else:
+            self.logger.debug("Canceled team delete request")
+
     def model_setup(self):
         self.logger.info("Initializing Model")
         tie_model = QtSql.QSqlRelationalTableModel(self)
