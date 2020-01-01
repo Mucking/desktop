@@ -282,14 +282,13 @@ class DistanceEditDelegate(BaseDelegate):
         editor.setValidator(DistValidator(parent=self))
         return editor
 
+    def display(self, value):
+        raise NotImplementedError
+
     # ONLY WORKS IN PYTHON 3.6+ due to dict insertion ordering
     # Due to the looping check order of these units is important
     # e.g. km must come before m since 5.0km would match m as 5.0k
     # leading to issues when the program tries to convert to a float
-
-    def display(self, value):
-        raise NotImplementedError
-
     def modelUpdate(self, editor, model, index):
         units_detected = False
         # Set field to None/NULL when editor is empty
