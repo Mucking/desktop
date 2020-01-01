@@ -248,7 +248,7 @@ class TimeEditDelegate(BaseDelegate):
                 s_time = f"{minutes}:{seconds:05.2f}"
 
                 if hours:
-                    s_time = f"{hours}:" + s_time
+                    s_time = f"{hours}:{minutes:02}:{seconds:05.2f}"
 
             return s_time
 
