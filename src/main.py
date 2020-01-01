@@ -371,7 +371,7 @@ class GUI(QtWidgets.QMainWindow):
                         sql = (
                             f'UPDATE ranks SET "{event}" = {set_val} WHERE id = {t_id};'
                         )
-                    temp = inner_query.exec(sql)
+                    inner_query.exec(sql)
                     i += 1
 
         self.logger.debug("Computing DQ Scores and Updating Ranks")
