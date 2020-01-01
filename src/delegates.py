@@ -1,6 +1,120 @@
 import logging
-from PyQt5 import QtCore, QtWidgets
+from PyQt5 import QtCore, QtWidgets, QtGui
 import utils
+
+
+class TimeValidator(QtGui.QValidator):
+    def __init__(self, parent):
+        super(TimeValidator, self).__init__(parent=parent)
+        self.statusBar = self.parent().parent().statusBar()
+
+    def validate(self, value: str, cursor_pos: int):
+        state = self.Invalid
+
+        if value.count(":") == 0:
+            if value == "":
+                state = self.Acceptable
+            elif value in ["d", "D"]:
+                state = self.Intermediate
+            elif value in ["DQ", "dq", "Dq", "dQ"]:
+                state = self.Acceptable
+            else:
+                try:
+                    float(value)
+                    state = self.Acceptable
+                except ValueError:
+                    state = self.Invalid
+                    self.statusBar.showMessage("Invalid Character", 2500)
+
+        elif value.count(":") == 1:
+            if value.endswith(":"):
+                state = self.Intermediate
+            else:
+                m, s = value.split(":")
+                try:
+                    s = float(s)
+                    if int(s) < 60:
+                        state = self.Acceptable
+                    else:
+                        state = self.Invalid
+                        self.statusBar.showMessage(
+                            "Seconds cannot be > 60 when minutes are specified",
+                            2500
+                        )
+                except ValueError:
+                    state = self.Invalid
+                    self.statusBar.showMessage("Invalid Character", 2500)
+
+        elif value.count(":") == 2:
+            if value.endswith(":"):
+                state = self.Intermediate
+                if value.endswith("::"):
+                    state = self.Invalid
+                    self.statusBar.showMessage("Minutes must be at least 0", 2500)
+            else:
+                h, m, s = value.split(":")
+                try:
+                    m = float(m)
+                    s = float(s)
+                    if m < 60 and s < 60:
+                        state = self.Acceptable
+                    else:
+                        state = self.Invalid
+                        if m > 60:
+                            self.statusBar.showMessage(
+                                "Minutes cannot be > 60 when hours are specified",
+                                2500
+                            )
+                        elif s > 60:
+                            self.statusBar.showMessage(
+                                "Seconds cannot be > 60 when minutes are specified",
+                                2500
+                            )
+                except ValueError:
+                    state = self.Invalid
+                    self.statusBar.showMessage("Invalid Character", 2500)
+
+        elif value.count(":") > 2:
+            state = self.Invalid
+
+        return state, value, cursor_pos
+
+
+class DistValidator(QtGui.QValidator):
+    def __init__(self, parent):
+        super(DistValidator, self).__init__(parent=parent)
+        self.statusBar = self.parent().parent().statusBar()
+
+    def validate(self, value: str, cursor_pos: int):
+        state = self.Invalid
+        if len(value) == 0:
+            state = self.Acceptable
+        elif value in ["d", "D"]:
+            state = self.Intermediate
+        elif value in ["DQ", "dq", "Dq", "dQ"]:
+            state = self.Acceptable
+        else:
+            value = value.lower()
+            if value.isdecimal():
+                state = self.Intermediate
+            else:
+                try:
+                    float(value)
+                    state = self.Intermediate
+                except ValueError:
+                    unit_text = "".join([c for c in value if c.isalpha()])
+                    if len(unit_text) == 1 and unit_text in "mckif":
+                        state = self.Intermediate
+                    else:
+                        for unit in utils.UNIT_FACTORS:
+                            if value.endswith(unit):
+                                state = self.Acceptable
+                                break
+        if "-" in value:
+            state = self.Invalid
+            self.statusBar.showMessage("Values Less than 0 not allowed", 2500)
+
+        return state, value, cursor_pos
 
 
 class BaseDelegate(QtWidgets.QStyledItemDelegate):
@@ -107,6 +221,12 @@ class DivisionDelegate(BaseDelegate):
 
 
 class TimeEditDelegate(BaseDelegate):
+    def createEditor(self, parent, option, index):
+        editor = QtWidgets.QLineEdit(parent)
+        editor.setFrame(False)
+        editor.setValidator(TimeValidator(parent=self))
+        return editor
+
     def display(self, value):
         if not value:
             return ""
@@ -152,13 +272,16 @@ class TimeEditDelegate(BaseDelegate):
         else:
             seconds = float(value)
 
-        if seconds < 0:
-            utils.alert("Input Error", "Times less than 0 are not valid", "warn")
-        else:
-            return seconds
+        return seconds
 
 
 class DistanceEditDelegate(BaseDelegate):
+    def createEditor(self, parent, option, index):
+        editor = QtWidgets.QLineEdit(parent)
+        editor.setFrame(False)
+        editor.setValidator(DistValidator(parent=self))
+        return editor
+
     # ONLY WORKS IN PYTHON 3.6+ due to dict insertion ordering
     # Due to the looping check order of these units is important
     # e.g. km must come before m since 5.0km would match m as 5.0k
@@ -180,11 +303,11 @@ class DistanceEditDelegate(BaseDelegate):
 
         if string in ["DQ", "dq", "Dq", "dQ"]:
             return self.dq_value
-        units_error_text = "\nPlease make sure the input ends with one of the following\n'km','m','cm','mm', 'mi', 'ft', 'in'"
 
         # TODO: Implement Fraction Inches input
         for unit in utils.UNIT_FACTORS:
             if string.endswith(unit):
+                units_detected = True
                 self.parent().logger.debug(
                     f"Detected units {unit}: {string.replace(unit, '').strip()}"
                 )
@@ -193,20 +316,12 @@ class DistanceEditDelegate(BaseDelegate):
                         float(string.replace(unit, "").strip())
                         / utils.UNIT_FACTORS[unit]
                     )
-                    units_detected = True
+                    return cms
                 except ValueError:
                     self.parent().logger.error(f"Partial Unit match of input: {string}")
-                else:
-                    if cms < 0:
-                        utils.alert(
-                            "Input Error", "Distances less than 0 are not valid", "warn"
-                        )
-                        return
-                    return cms
 
         if not units_detected:
             self.parent().logger.error(f"Unable to detect units of input: {string}")
-            utils.alert("Could not detect Units", units_error_text, "warn")
             return
 
     @property
