@@ -512,7 +512,6 @@ class GUI(QtWidgets.QMainWindow):
         title.setText(f"{self.settings.value('comp/year')} Team Scores")
 
         # Table Options
-        # TODO: Setup table based on which model is in use
         self.team_table.setModel(self.data_model)
         self.team_table.setColumnHidden(0, True)
         self.table_min_size()
@@ -641,7 +640,6 @@ class GUI(QtWidgets.QMainWindow):
         )
 
     def units_update(self):
-        # TODO: Handle Dual data model
         caller = self.sender()
         self.settings.setValue("app/display", caller.text().lower())
         for col in range(3, 11):
