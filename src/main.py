@@ -157,19 +157,22 @@ class GUI(QtWidgets.QMainWindow):
         self.view_setup()
 
     # Tie functions
-    def tie_add(self, use_selections=True):
+    def tie_add(self, use_selections=False):
         if use_selections:
             indexes = self.team_table.selectionModel().selectedRows()
         else:
             indexes = []
         if len(indexes) == 1:
-            diag = dialogs.TieDialog(indexes[0].row())
+            t_id = indexes[0].data(QtCore.Qt.EditRole)
+            diag = dialogs.TieDialog(t_id)
         elif len(indexes) == 2:
+            t1_id = indexes[0].data(QtCore.Qt.EditRole)
+            t2_id = indexes[1].data(QtCore.Qt.EditRole)
             query = QtSql.QSqlQuery()
-            query.exec_(f"SELECT Division from teams where id = {indexes[0].row()+1};")
+            query.exec_(f"SELECT Division from teams where id = {t1_id};")
             query.next()
             t1_div = query.value(0)
-            query.exec_(f"SELECT Division from teams where id = {indexes[1].row()+1};")
+            query.exec_(f"SELECT Division from teams where id = {t2_id};")
             query.next()
             t2_div = query.value(0)
             query.clear()
@@ -179,8 +182,7 @@ class GUI(QtWidgets.QMainWindow):
                 utils.alert("Error", "Ties can only exist within a division ", "crit")
                 return
             else:
-                diag = dialogs.TieDialog(indexes[0].row(), indexes[1].row())
-                pass
+                diag = dialogs.TieDialog(t1_id, t2_id)
         else:
             diag = dialogs.TieDialog()
 

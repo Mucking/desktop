@@ -94,12 +94,12 @@ class TieDialog(QtWidgets.QDialog):
         del query
 
         if team_1_id:
-            self.team_1.setCurrentIndex(self.team_1.findData(team_1_id) + 1)
+            self.team_1.setCurrentIndex(self.team_1.findData(team_1_id))
 
         self.update_combo_2()
 
         if team_2_id:
-            self.team_2.setCurrentIndex(self.team_2.findData(team_2_id) + 1)
+            self.team_2.setCurrentIndex(self.team_2.findData(team_2_id))
 
     def update_combo_2(self):
         team_1_id = self.team_1.currentData()
