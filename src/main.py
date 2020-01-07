@@ -313,7 +313,6 @@ class GUI(QtWidgets.QMainWindow):
         self.display.setCurrentWidget(self.welcome_screen)
 
     def comp_score(self):
-        # TODO: Verify no nulls
         # TODO: Improve Scoring Algorithm (Currently does not expect ties)
         #       Current Scoring Improvements
         #         Check if values for a given team are the same in an event
@@ -345,6 +344,21 @@ class GUI(QtWidgets.QMainWindow):
         self.logger.info("Scoring Competition")
         loop_query = QtSql.QSqlQuery(self.db)
         inner_query = QtSql.QSqlQuery(self.db)
+
+        # Check for nulls
+        self.logger.debug("Checking for Null Values")
+        null_query = QtSql.QSqlQuery(self.db)
+        null_query.exec("SELECT * from teams;")
+        while null_query.next():
+            for i in range(4, 11):
+                if not null_query.value(i):
+                    self.team_table.selectRow(null_query.value(0)-1)
+                    utils.alert("NULL ERROR",
+                                f"Missing Score for team {null_query.value(2)}",
+                                "crit")
+                    return
+        null_query.clear()
+        del null_query
 
         self.logger.debug("Computing Initial Ranks")
         for div in ["A", "C", "M", "W"]:
