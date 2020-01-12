@@ -1,4 +1,5 @@
 import logging
+from math import isclose
 from PyQt5 import QtCore, QtWidgets, QtGui
 import utils
 
@@ -152,6 +153,13 @@ class BaseDelegate(QtWidgets.QStyledItemDelegate):
     def setModelData(self, editor, model, index):
         value = index.model().data(index, QtCore.Qt.EditRole)
         new_value = self.modelUpdate(editor, model, index)
+
+        # Discard Values that are input within 0.01 cm of each other or None for new
+        if value not in [None, '']:
+            if new_value not in ["DQ", "dq", "Dq", "dQ", None]:
+                if isclose(value, new_value, abs_tol=0.01):
+                    return
+
         model.setData(index, new_value, QtCore.Qt.EditRole)
 
         # Logging of Transaction
