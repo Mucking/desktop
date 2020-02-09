@@ -63,6 +63,7 @@ class TieWindow(QtWidgets.QMainWindow):
         tie_model.setHeaderData(4, QtCore.Qt.Horizontal, "Winner")
         tie_model.setRelation(1, QtSql.QSqlRelation("teams", "id", "Name"))
         tie_model.setRelation(2, QtSql.QSqlRelation("teams", "id", "Name"))
+        tie_model.setRelation(4, QtSql.QSqlRelation("teams", "id", "Name"))
         tie_model.setEditStrategy(QtSql.QSqlTableModel.OnFieldChange)
         tie_model.select()
         self.model = tie_model
@@ -145,9 +146,7 @@ class WinnerDelegate(QtSql.QSqlRelationalDelegate):
 
         rect = option.rect
         rect -= QtCore.QMargins(6, 6, 6, 6)
-        t_1_name = index.siblingAtColumn(1).data(QtCore.Qt.EditRole)
-        t_2_name = index.siblingAtColumn(2).data(QtCore.Qt.EditRole)
-        value = [t_1_name, t_2_name][not index.data(QtCore.Qt.EditRole)]
+        value = index.data(QtCore.Qt.EditRole)
         painter.drawText(rect, (QtCore.Qt.AlignLeft | QtCore.Qt.AlignVCenter), str(value))
 
         painter.restore()
@@ -157,10 +156,13 @@ class WinnerDelegate(QtSql.QSqlRelationalDelegate):
         t_1_name = index.siblingAtColumn(1).data(QtCore.Qt.EditRole)
         t_2_name = index.siblingAtColumn(2).data(QtCore.Qt.EditRole)
         editor.clear()
-        editor.addItem(t_1_name, 1)
-        editor.addItem(t_2_name, 0)
+        editor.addItem(t_1_name)
+        editor.addItem(t_2_name)
         editor.setCurrentIndex(not index.data(QtCore.Qt.EditRole))
         return editor
 
     def setModelData(self, editor, model, index) -> None:
-        model.setData(index, editor.currentData(), QtCore.Qt.EditRole)
+        related_table = model.relationModel(4)
+        t_index = related_table.match(related_table.index(0, 2), QtCore.Qt.DisplayRole, editor.currentText())
+        t_id = t_index[0].siblingAtColumn(0).data(QtCore.Qt.DisplayRole)
+        model.setData(index, t_id, QtCore.Qt.EditRole)

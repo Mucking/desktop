@@ -10,7 +10,7 @@ import utils
 import ties
 import pathlib
 
-VERSION = "2019.00.90"
+VERSION = "2020.01.00"
 
 
 class GUI(QtWidgets.QMainWindow):
@@ -158,6 +158,7 @@ class GUI(QtWidgets.QMainWindow):
 
     # Tie functions
     def tie_add(self, use_selections=False):
+        # TODO: Add confirmation logic for scores that significantly differ
         if use_selections:
             indexes = self.team_table.selectionModel().selectedRows()
         else:
@@ -199,7 +200,7 @@ class GUI(QtWidgets.QMainWindow):
                 f"Add Tie between {t1_name} and {t2_name}, E: {e_name}, W: {w_name}"
             )
             query.exec_(
-                f"INSERT INTO ties (team_1_id, team_2_id, event, winner) VALUES ({t1_id}, {t2_id}, '{e_name}', {int(w_id==t1_id)});"
+                f"INSERT INTO ties (team_1_id, team_2_id, event, winner) VALUES ({t1_id}, {t2_id}, '{e_name}', {w_id});"
             )
             query.clear()
             del query
@@ -415,12 +416,45 @@ class GUI(QtWidgets.QMainWindow):
                         f'UPDATE ranks SET "{event}" = {dq_score} where Division="{div}" and "{event}"=0;'
                     )
 
+        # Reset Ties Won
+        self.logger.debug("Clearing Ties Won")
+        loop_query.exec('UPDATE ranks SET "Ties Won"=0;')
+
         # Handle Ties
-        # TODO:
-        #  Check for ties,
-        #  For each tie set both teams to the lowest for each event
-        #  Update Ties Won
-        #  Update final Scoring to account for ties won
+        self.logger.debug("Handling Ties")
+        loop_query.exec("SELECT * FROM ties;")
+        while loop_query.next():
+            # get tie data
+            t1_id = loop_query.value(1)
+            t2_id = loop_query.value(2)
+            e_name = loop_query.value(3)
+            winning_id = loop_query.value(4)
+            losing_id = {t1_id, t2_id} - {winning_id}
+            losing_id = losing_id.pop()
+
+            # get rank of team 1
+            inner_query.exec(f'SELECT "{e_name}" FROM ranks where id={t1_id}')
+            inner_query.first()
+            t1_rank = inner_query.value(0)
+
+            # get rank of team 2
+            inner_query.exec(f'SELECT "{e_name}" FROM ranks where id={t2_id}')
+            inner_query.first()
+            t2_rank = inner_query.value(0)
+
+            # set ranks according to tie record
+            winning_rank = min(t1_rank, t2_rank)
+            losing_rank = max(t1_rank, t2_rank)
+            inner_query.exec(f'UPDATE ranks SET "{e_name}"={winning_rank} where id={winning_id}')
+            inner_query.exec(f'UPDATE ranks SET "{e_name}"={losing_rank} where id={losing_id}')
+
+            # Increment Ties Won
+            inner_query.exec(f'SELECT "Ties Won" from ranks where id={winning_id}')
+            inner_query.first()
+            winner_ties = inner_query.value(0)
+            if not winner_ties:
+                winner_ties = 0
+            inner_query.exec(f'UPDATE ranks SET "Ties Won"={winner_ties + 1} where id={winning_id}')
 
         self.logger.debug("Computing Total Scores")
         loop_query.exec("SELECT * from ranks;")
